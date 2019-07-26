@@ -205,6 +205,93 @@ def find_and_remove_dupes(results):
     return results
 
 
+def yelp_review_call(api_key, bus_id):
+    """ yelp_review_call(api_key, bus_id):
+    Get the Yelp reviews for the business id
+    Params:
+        api_key: Yelp api key (from config)
+        bus_id: the business id for which to get reviews
+    Returns:
+        Json dict of reviews
+    """
+    url = f'https://api.yelp.com/v3/businesses/{bus_id}/reviews'
+    headers = {'Authorization': 'Bearer {}'.format(api_key)}
+
+    response = requests.get(url, headers=headers)
+
+    return response.json()
+
+
+def get_reviews(records, test_lim=None):
+    """get_reviews(records):
+    Get our Yelp reviews from the restuarant records
+    Params:
+        Records: Restaurant records containing business IDs
+    Returns:
+        reviews: list of review dicts
+    """
+
+    limit = True if test_lim else False
+    lim_count = test_lim if test_lim else 0
+    iter_count = 0
+
+    reviews_all_dict = dict.fromkeys([rec['id'] for rec in records], 0)
+
+    for bus_id in reviews_all_dict.keys():
+        if not limit:
+            reviews_all_dict[bus_id] = yelp_review_call(config.key, bus_id)
+        else:
+            if iter_count <= lim_count:
+                reviews_all_dict[bus_id] = yelp_review_call(config.key, bus_id)
+                iter_count += 1
+
+    review_list = []
+    for key in reviews_all_dict.keys():
+        print('KEY: ', key)
+        bus_id = key
+        print('ENTRY: ', reviews_all_dict[key])
+        reviews = reviews_all_dict[key].get('reviews', None)
+        for item in reviews:
+            review_list.append(dict(id=item['id'],
+                text=item['text'],
+                rating=item['rating'],
+                creation_dt=item['time_created'],
+                bus_id=bus_id))
+
+    return review_list
+
+
+def populate_reviews(reviews, table_name, config_params):
+    """populate_reviews(reviews, config):
+    Insert our Yelp review records into our DB
+    Params:
+        reviews: list of revies
+        config: all our DB config
+    Returns:  Nothing
+    """
+    INSERT_STR = f'INSERT INTO {table_name} (id, text, rating, creation_date, bus_id) '
+    VALUE_STR = 'VALUES (%s, %s, %s, %s, %s)'
+    INSERT_QUERY = INSERT_STR + VALUE_STR
+
+    db_conn = get_db_conn(config_params)
+    if not db_conn:
+        print('No DB connection!')
+        return
+    try:
+        cursor = db_conn.cursor()
+        for review in reviews:
+            values = tuple(review.values())
+            try:
+                cursor.execute(INSERT_QUERY, values)
+            except Exception:   # assuming bad data, but want to continue
+                print('row: ', values)
+                continue
+
+    finally:
+        db_conn.commit()
+        db_conn.close()
+
+
 def main():
 
     # set up our business search parameters:
@@ -216,7 +303,7 @@ def main():
 
     # make our main API call to get all results
     # pass limit of 1 for testing
-    results = get_all_yelp_search_results(url_params, config.key, test_lim=500)
+    results = get_all_yelp_search_results(url_params, config.key)
 
     print('results:  ', len(results))
 
@@ -231,10 +318,16 @@ def main():
     print('records:  ', len(records))
 
     # populate the DB with our records
-    populate_db(records, 'businesses_bak', config)
+    populate_db(records, 'test_businesses', config)
+
+    # get associated restaurant reviews from our restaurant records
+    reviews = get_reviews(records)
+
+    # populate reviews in the DB:
+    populate_reviews(reviews, table_name='test_reviews', config_params=config)
 
 
 if __name__ == '__main__':
     # test our script with constrained API call and
-    # with test table for inserts
+    # with test tables for inserts
     main()

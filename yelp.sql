@@ -43,6 +43,14 @@ CREATE table if not exists businesses_bak(
     PRIMARY KEY (id)
 )
 
+CREATE table if not exists test_businesses(
+    id varchar(30) not null,
+    name VARCHAR(40) NOT NULL,
+    rating float,
+    price varchar(5)
+    PRIMARY KEY (id)
+)
+
 
 
 
