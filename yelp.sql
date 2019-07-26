@@ -25,6 +25,27 @@ CREATE TABLE IF NOT EXISTS businesses(
     PRIMARY KEY (id)
 )  ENGINE=INNODB;
 
+
+
+CREATE TABLE IF NOT EXISTS businesses_bak (
+    id varchar(30) NOT NULL,
+    name VARCHAR(40) NOT NULL,
+    rating float,
+    price varchar(5)
+    PRIMARY KEY (id) )
+
+
+CREATE table if not exists businesses_bak(
+    id varchar(30) not null,
+    name VARCHAR(40) NOT NULL,
+    rating float,
+    price varchar(5)
+    PRIMARY KEY (id)
+)
+
+
+
+
 -- Review table:
 -- ID
 -- text

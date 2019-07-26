@@ -117,3 +117,7 @@ venv.bak/
 .Trashes
 ehthumbs.db
 Thumbs.db
+
+# config.py with keys
+#####################
+config.py
