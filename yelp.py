@@ -147,7 +147,7 @@ def populate_db(records, table_name, config_params):
     Returns:
         Nothing.  Closes conn on finally block.
     """
-    INSERT_STR = f'INSERT INTO {table_name} (id, name, rating, price) '
+    INSERT_STR = f'INSERT INTO {table_name} (yelp_id, name, rating, price) '
     VALUE_STR = 'VALUES (%s, %s, %s, %s)'
     INSERT_QUERY = INSERT_STR + VALUE_STR
 
@@ -190,9 +190,19 @@ def get_db_conn(config_params):
     return conn
 
 
+def find_dupes(results):
+    bus_ids = get_bus_ids(results)
+    dupes = [i for i, cnt in collections.Counter(bus_ids).items() if cnt > 1]
+    print('num dupes:  ', len(dupes))
+
+    return dupes
+
+
 def find_and_remove_dupes(results):
     bus_ids = get_bus_ids(results)
     dupes = [i for i, cnt in collections.Counter(bus_ids).items() if cnt > 1]
+    num_dupes = len(dupes)
+    print('num dupes:  ', num_dupes)
     print('dupes:  ', dupes)
 
     for i in dupes:
@@ -201,6 +211,7 @@ def find_and_remove_dupes(results):
                 print('dupe value:  ', i)
                 print('deleting index: ', j)
                 del results[j]
+                break
 
     return results
 
@@ -245,6 +256,14 @@ def get_reviews(records, test_lim=None):
                 reviews_all_dict[bus_id] = yelp_review_call(config.key, bus_id)
                 iter_count += 1
 
+    #  if we haven't fetched all records (becausd we're testing),
+    #  then slice off only the dict subset of valid values
+    if limit:
+        sub_dict = {k: reviews_all_dict[k] for k in reviews_all_dict.keys()
+                    if reviews_all_dict.get(k)}
+        reviews_all_dict.clear()
+        reviews_all_dict = sub_dict
+
     review_list = []
     for key in reviews_all_dict.keys():
         print('KEY: ', key)
@@ -253,10 +272,10 @@ def get_reviews(records, test_lim=None):
         reviews = reviews_all_dict[key].get('reviews', None)
         for item in reviews:
             review_list.append(dict(id=item['id'],
-                text=item['text'],
-                rating=item['rating'],
-                creation_dt=item['time_created'],
-                bus_id=bus_id))
+                                    text=item['text'],
+                                    rating=item['rating'],
+                                    creation_dt=item['time_created'],
+                                    bus_id=bus_id))
 
     return review_list
 
@@ -269,7 +288,7 @@ def populate_reviews(reviews, table_name, config_params):
         config: all our DB config
     Returns:  Nothing
     """
-    INSERT_STR = f'INSERT INTO {table_name} (id, text, rating, creation_date, bus_id) '
+    INSERT_STR = f'INSERT INTO {table_name} (yelp_id, text, rating, creation_date, yelp_bus_id) '
     VALUE_STR = 'VALUES (%s, %s, %s, %s, %s)'
     INSERT_QUERY = INSERT_STR + VALUE_STR
 
@@ -318,13 +337,13 @@ def main():
     print('records:  ', len(records))
 
     # populate the DB with our records
-    populate_db(records, 'test_businesses', config)
+    populate_db(records, table_name='businesses_test2', config_params=config)
 
     # get associated restaurant reviews from our restaurant records
     reviews = get_reviews(records)
 
     # populate reviews in the DB:
-    populate_reviews(reviews, table_name='test_reviews', config_params=config)
+    populate_reviews(reviews, table_name='test_reviews2', config_params=config)
 
 
 if __name__ == '__main__':
